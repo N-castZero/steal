@@ -15,57 +15,52 @@
   const themeSelect = document.getElementById('theme-select');
 
   let capturedFunctions = [];
-  let executionHistory = [];
 
   function updateLineNumbers() {
     const lines = editor.value.split('\n').length;
-    let html = '';
-    for (let i = 1; i <= lines; i++) html += i + '\n';
-    lineNumbers.textContent = html;
+    lineNumbers.textContent = Array.from({length: lines}, (_, i) => i+1).join('\n');
   }
   editor.addEventListener('input', updateLineNumbers);
-  editor.addEventListener('scroll', () => {
-    lineNumbers.scrollTop = editor.scrollTop;
-  });
+  editor.addEventListener('scroll', () => lineNumbers.scrollTop = editor.scrollTop);
   updateLineNumbers();
 
   function log(message, type = 'info') {
     const entry = document.createElement('div');
     entry.className = 'log-' + type;
-    const timestamp = new Date().toLocaleTimeString();
+    const ts = new Date().toLocaleTimeString();
     if (typeof message === 'string' && message.includes('\n')) {
       entry.style.whiteSpace = 'pre-wrap';
       entry.style.wordBreak = 'break-all';
     }
-    entry.textContent = `[${timestamp}] ${message}`;
+    entry.textContent = `[${ts}] ${message}`;
     output.appendChild(entry);
     output.scrollTop = output.scrollHeight;
-    executionHistory.push({ message, type, timestamp });
   }
 
-  async function fetchScriptWithRetry(url, retries = 2) {
+  async function fetchWithRetry(url, retries = 2) {
     for (let i = 0; i <= retries; i++) {
       try {
         const resp = await fetch(url, {
-          headers: {
-            'User-Agent': 'Roblox/WinInet',
-            'Accept': 'text/plain'
-          }
+          headers: { 'User-Agent': 'Roblox/WinInet', 'Accept': 'text/plain' }
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const text = await resp.text();
-        if (text.length < 10) throw new Error('Script terlalu pendek, mungkin terpotong.');
+        if (text.length < 5) throw new Error('Konten terlalu pendek');
         return text;
       } catch (e) {
-        log(`⚠️ Fetch attempt ${i+1} gagal: ${e.message}`, 'warn');
+        log(`⚠️ Percobaan ${i+1} gagal: ${e.message}`, 'warn');
         if (i === retries) {
-          log(`❌ Gagal memuat dari ${url} setelah ${retries+1} percobaan.`, 'error');
+          log(`❌ Gagal total dari ${url}`, 'error');
           return null;
         }
         await new Promise(r => setTimeout(r, 500));
       }
     }
-    return null;
+  }
+
+  function extractUrls(code) {
+    const urlRegex = /https?:\/\/[^\s"')]+/g;
+    return code.match(urlRegex) || [];
   }
 
   function trapEnvironment(code) {
@@ -73,12 +68,10 @@
     const localFuncRegex = /local\s+(\w+)\s*=\s*function/g;
     const globalAssign = /(\w+)\s*=\s*function/g;
     const found = [];
-
-    let match;
-    while ((match = funcRegex.exec(code)) !== null) found.push(match[1]);
-    while ((match = localFuncRegex.exec(code)) !== null) found.push(match[1]);
-    while ((match = globalAssign.exec(code)) !== null) found.push(match[1]);
-
+    let m;
+    while ((m = funcRegex.exec(code)) !== null) found.push(m[1]);
+    while ((m = localFuncRegex.exec(code)) !== null) found.push(m[1]);
+    while ((m = globalAssign.exec(code)) !== null) found.push(m[1]);
     if (code.includes('loadstring') || code.includes('HttpGet')) found.push('_trap_loader');
     if (code.includes('game:GetService')) found.push('_service_hook');
     if (code.includes('getgenv') || code.includes('_G')) found.push('_env_hook');
@@ -95,145 +88,69 @@
       funcList.appendChild(chip);
     });
 
-    log(`🧩 Trap: ${unique.length} function/environment signatures captured.`, 'trap');
+    log(`🧩 Trap: ${unique.length} function/environment captured.`, 'trap');
     return unique;
   }
 
   async function executeScript(code) {
-    if (!code || !code.trim()) {
-      log('⚠️ Script kosong, tidak ada yang dijalankan.', 'warn');
+    if (!code.trim()) {
+      log('⚠️ Script kosong.', 'warn');
       return;
     }
 
-    log('▶️ Executing script...', 'info');
-    log(`📜 Script length: ${code.length} chars`, 'info');
+    log('▶️ Menjalankan script...', 'info');
+    log(`📜 Panjang: ${code.length} chars`, 'info');
 
     trapEnvironment(code);
 
-    // Siapkan sandbox DULU agar tersedia untuk fetch result
-    const sandbox = {
-      print: (...args) => log('📢 ' + args.join(' '), 'success'),
-      warn: (...args) => log('⚠️ ' + args.join(' '), 'warn'),
-      error: (...args) => log('❌ ' + args.join(' '), 'error'),
-      game: {
-        GetService: (s) => {
-          log(`🎮 game:GetService("${s}") dipanggil`, 'info');
-          return { Name: s };
-        },
-        HttpGet: (url) => {
-          log(`🌐 game:HttpGet("${url}") — trap environment captured`, 'trap');
-          return '-- [trap] content from ' + url;
-        },
-        PlaceId: 0,
-        GameId: 0,
-        Players: { LocalPlayer: { UserId: 12345 } }
-      },
-      getgenv: () => ({}),
-      _G: { ServerURL: 'https://zeroinhub.com' },
-      syn: { request: () => ({ Status: 200, Body: '{}' }) },
-      request: () => ({ Status: 200, Body: '{}' }),
-      http_request: () => ({ Status: 200, Body: '{}' }),
-      http: { request: () => ({ Status: 200, Body: '{}' }) },
-      gethui: () => ({ Parent: null }),
-      Instance: {
-        new: (cls) => ({
-          Name: cls,
-          Parent: null,
-          Size: {},
-          Position: {},
-          BackgroundColor3: {},
-          BorderSizePixel: 0,
-          BorderColor3: {},
-          Text: '',
-          TextColor3: {},
-          Font: {},
-          TextSize: 0,
-          BackgroundTransparency: 1,
-          TextWrapped: false,
-          TextEditable: false,
-          ClearTextOnFocus: false,
-          Parent: null
-        })
-      },
-      Color3: { fromRGB: () => ({}) },
-      Enum: { Font: { GothamBold: {}, Gotham: {}, Code: {} } },
-      UDim2: { new: () => ({}) },
-      loadstring: (src) => {
-        log(`📦 loadstring() dipanggil — environment terpapar!`, 'trap');
-        return function() { log('⚡ loadstring result executed', 'success'); };
-      }
-    };
-
-    // Ekstrak URL dan fetch REAL
-    if (code.includes('loadstring') && code.includes('HttpGet')) {
-      log('⚠️ Detected loadstring(HttpGet) — trap script terdeteksi!', 'warn');
-      const urls = code.match(/https?:\/\/[^\s"')]+/g) || [];
+    const urls = extractUrls(code);
+    if (urls.length === 0) {
+      log('ℹ️ Tidak ada URL ditemukan. Script mungkin lokal.', 'info');
+    } else {
+      log(`🔗 Ditemukan ${urls.length} URL`, 'info');
       for (const url of urls) {
-        log(`🔗 Fetching REAL URL: ${url}`, 'trap');
-        const fetched = await fetchScriptWithRetry(url);
-        if (fetched) {
-          // TAMPILKAN RAW CONTENT ASLI DI OUTPUT
-          log(`📥 Berhasil fetch (${fetched.length} chars)`, 'success');
-          log(`📄 RAW CONTENT:\n${fetched}`, 'trap'); // <-- INI JAWABAN PERTANYAAN KAMU
-          sandbox._fetchedScripts = sandbox._fetchedScripts || {};
-          sandbox._fetchedScripts[url] = fetched;
+        log(`🌐 Fetching: ${url}`, 'trap');
+        const content = await fetchWithRetry(url);
+        if (content !== null) {
+          log(`📥 Berhasil fetch (${content.length} chars)`, 'success');
+          log(`📄 RAW CONTENT:\n${content}`, 'trap');
         } else {
-          log(`⚠️ Gagal fetch dari ${url}, lanjutkan dengan simulasi.`, 'warn');
+          log(`⚠️ Gagal fetch ${url}`, 'warn');
         }
       }
     }
 
-    const wrappedCode = `
-      (function() {
-        ${code}
-      })()
-    `;
-
-    try {
-      const fn = new Function('sandbox', `
-        with (sandbox) {
-          ${wrappedCode}
-        }
-      `);
-      fn(sandbox);
-      log('✅ Eksekusi selesai.', 'success');
-    } catch (err) {
-      log(`❌ Error: ${err.message}`, 'error');
-      log('💡 Perbaiki sintaks di editor atau cek koneksi.', 'warn');
-    }
+    // Simulasi eksekusi tanpa error
+    log('✅ Eksekusi selesai (simulasi).', 'success');
   }
 
+  // ── Event Listeners ──
   btnExec.addEventListener('click', () => executeScript(editor.value));
+
   btnClear.addEventListener('click', () => {
     editor.value = '';
     updateLineNumbers();
     log('🗑️ Editor dibersihkan.', 'info');
   });
+
   btnClearOutput.addEventListener('click', () => {
     output.innerHTML = '';
-    executionHistory = [];
     log('🧹 Output dibersihkan.', 'info');
   });
+
   btnSave.addEventListener('click', () => {
-    try {
-      localStorage.setItem('robux_loader_script', editor.value);
-      log('💾 Script disimpan.', 'success');
-    } catch (e) {
-      log('❌ Gagal simpan: ' + e.message, 'error');
-    }
+    localStorage.setItem('robux_loader_script', editor.value);
+    log('💾 Script disimpan.', 'success');
   });
+
   btnLoad.addEventListener('click', () => {
-    try {
-      const saved = localStorage.getItem('robux_loader_script');
-      if (saved) {
-        editor.value = saved;
-        updateLineNumbers();
-        log('📂 Script dimuat.', 'success');
-      } else {
-        log('⚠️ Tidak ada simpanan.', 'warn');
-      }
-    } catch (e) {
-      log('❌ Gagal muat: ' + e.message, 'error');
+    const saved = localStorage.getItem('robux_loader_script');
+    if (saved) {
+      editor.value = saved;
+      updateLineNumbers();
+      log('📂 Script dimuat.', 'success');
+    } else {
+      log('⚠️ Tidak ada simpanan.', 'warn');
     }
   });
 
@@ -277,7 +194,8 @@
     }
   });
 
-  log('🚀 Robux Loader siap. Neo-brutalism aktif.', 'success');
-  log('💡 Ctrl+Enter execute. RAW fetch akan tampil di output.', 'info');
+  // ── Init ──
+  log('🚀 Robux Loader siap.', 'success');
+  log('💡 Ctrl+Enter untuk execute. URL akan di-fetch otomatis.', 'info');
   setTimeout(() => trapEnvironment(editor.value), 300);
 })();
