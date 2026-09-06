@@ -1,1 +1,241 @@
-(function(){'use strict';const M=document['getElementById']('script-editor'),A=document['getElementById']('output-console'),X=document['getElementById']('line-numbers'),N=document['getElementById']('function-list'),F=document['getElementById']('env-count'),a=document['getElementById']('btn-execute'),K=document['getElementById']('btn-clear'),B=document['getElementById']('btn-clear-output'),f=document['getElementById']('btn-save'),v=document['getElementById']('btn-load'),m=document['getElementById']('theme-select');let t=[],n=[];function p(){const w=M['value']['split']('\x0a')['length'];let S='';for(let l=0x1;l<=w;l++)S+=l+'\x0a';X['textContent']=S;}M['addEventListener']('input',p),M['addEventListener']('scroll',()=>{X['scrollTop']=M['scrollTop'];}),p();function d(w,S='info'){const l=document['createElement']('div');l['className']='log-'+S;const o=new Date()['toLocaleTimeString']();l['textContent']='['+''['concat'](o)+']\x20'+''['concat'](w),A['appendChild'](l),A['scrollTop']=A['scrollHeight'],n['push']({'message':w,'type':S,'timestamp':o});}function Z(w){const S=/function\s+(\w+)\s*\(/g,l=/local\s+(\w+)\s*=\s*function/g,o=/(\w+)\s*=\s*function/g,P=[];let h;while((h=S['exec'](w))!==null)P['push'](h[0x1]);while((h=l['exec'](w))!==null)P['push'](h[0x1]);while((h=o['exec'](w))!==null)P['push'](h[0x1]);(w['includes']('loadstring')||w['includes']('HttpGet'))&&P['push']('_trap_loader');w['includes']('game:GetService')&&P['push']('_service_hook');const J=[...new Set(P)];return t=J,F['textContent']=J['length'],N['innerHTML']='',J['forEach'](L=>{const D=document['createElement']('span');D['className']='func-chip',D['textContent']=L,N['appendChild'](D);}),d('🧩\x20Trap:\x20'+''['concat'](J['length'])+'\x20function/environment\x20signatures\x20captured.','trap'),J;}function T(w){if(!w['trim']()){d('⚠️\x20Script\x20kosong,\x20tidak\x20ada\x20yang\x20dijalankan.','warn');return;}d('▶️\x20Executing\x20script...','info'),d('📜\x20Script\x20length:\x20'+''['concat'](w['length'])+'\x20chars','info'),Z(w);if(w['includes']('loadstring')&&w['includes']('HttpGet')){d('⚠️\x20Detected\x20loadstring(HttpGet)\x20—\x20trap\x20script\x20terdeteksi!','warn');const S=w['match'](/https?:\/\/[^\s"')]+/g)||[];S['forEach']((l,o)=>{d('🔗\x20Trap\x20URL\x20'+''['concat'](o+0x1)+':\x20'+''['concat'](l),'trap');});}try{const l={'print':(...P)=>d('📢\x20'+P['join']('\x20'),'success'),'warn':(...P)=>d('⚠️\x20'+P['join']('\x20'),'warn'),'error':(...P)=>d('❌\x20'+P['join']('\x20'),'error'),'game':{'GetService':P=>{return d('🎮\x20game:GetService(\x22'+''['concat'](P)+'\x22)\x20dipanggil','info'),{'Name':P};},'HttpGet':P=>{return d('🌐\x20game:HttpGet(\x22'+''['concat'](P)+'\x22)\x20—\x20trap\x20environment\x20captured','trap'),'--\x20[trap]\x20content\x20from\x20'+P;}},'loadstring':P=>{return d('📦\x20loadstring()\x20dipanggil\x20—\x20environment\x20terpapar!','trap'),function(){d('⚡\x20loadstring\x20result\x20executed','success');};}},o=new Function('sandbox','\x0a\x20\x20\x20\x20\x20\x20\x20\x20with\x20(sandbox)\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+''['concat'](w)+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20');o(l),d('✅\x20Execusi\x20selesai\x20(simulasi).','success');}catch(P){d('❌\x20Error:\x20'+''['concat'](P['message']),'error');}}a['addEventListener']('click',()=>{const w=M['value'];T(w);}),K['addEventListener']('click',()=>{M['value']='',p(),d('🗑️\x20Editor\x20dibersihkan.','info');}),B['addEventListener']('click',()=>{A['innerHTML']='',n=[],d('🧹\x20Output\x20dibersihkan.','info');}),f['addEventListener']('click',()=>{try{localStorage['setItem']('robux_loader_script',M['value']),d('💾\x20Script\x20disimpan\x20ke\x20local\x20storage.','success');}catch(w){d('❌\x20Gagal\x20menyimpan:\x20'+w['message'],'error');}}),v['addEventListener']('click',()=>{try{const w=localStorage['getItem']('robux_loader_script');w?(M['value']=w,p(),d('📂\x20Script\x20dimuat\x20dari\x20local\x20storage.','success')):d('⚠️\x20Tidak\x20ada\x20script\x20tersimpan.','warn');}catch(S){d('❌\x20Gagal\x20memuat:\x20'+S['message'],'error');}}),m['addEventListener']('change',w=>{const S=w['target']['value'],l=document['getElementById']('app'),o=document['body'];if(S==='dark')o['style']['background']='#1a1a1a',l['style']['background']='#2d2d2d',l['style']['borderColor']='#fee440',l['style']['boxShadow']='12px\x2012px\x200\x20#fee440',M['style']['background']='#1e1e1e',M['style']['color']='#d4d4d4',document['querySelector']('.editor-panel')['style']['borderColor']='#fee440';else S==='neon'?(o['style']['background']='#0d0d2b',l['style']['background']='#1a1a3a',l['style']['borderColor']='#ff00ff',l['style']['boxShadow']='12px\x2012px\x200\x20#00ffff',M['style']['background']='#0d0d1a',M['style']['color']='#00ffcc',document['querySelector']('.editor-panel')['style']['borderColor']='#ff00ff'):(o['style']['background']='#f5f0e8',l['style']['background']='#ffffff',l['style']['borderColor']='#1a1a1a',l['style']['boxShadow']='12px\x2012px\x200\x20#1a1a1a',M['style']['background']='#fcfcf8',M['style']['color']='#1a1a1a',document['querySelector']('.editor-panel')['style']['borderColor']='#1a1a1a');d('🎨\x20Tema\x20diubah\x20ke:\x20'+''['concat'](S),'info');}),M['addEventListener']('keydown',w=>{w['ctrlKey']&&w['key']==='Enter'&&(w['preventDefault'](),a['click']());}),d('🚀\x20Robux\x20Loader\x20siap.\x20Neo-brutalism\x20+\x20long\x20shadow\x20aktif.','success'),d('💡\x20Ctrl+Enter\x20untuk\x20execute.\x20Trap\x20environment\x20berjalan\x20real-time.','info'),setTimeout(()=>{Z(M['value']);},0x12c);}());
+(function() {
+  'use strict';
+
+  // ── DOM refs ──
+  const editor = document.getElementById('script-editor');
+  const output = document.getElementById('output-console');
+  const lineNumbers = document.getElementById('line-numbers');
+  const funcList = document.getElementById('function-list');
+  const envCount = document.getElementById('env-count');
+
+  const btnExec = document.getElementById('btn-execute');
+  const btnClear = document.getElementById('btn-clear');
+  const btnClearOutput = document.getElementById('btn-clear-output');
+  const btnSave = document.getElementById('btn-save');
+  const btnLoad = document.getElementById('btn-load');
+  const themeSelect = document.getElementById('theme-select');
+
+  // ── State ──
+  let capturedFunctions = [];
+  let executionHistory = [];
+
+  // ── Line Numbers ──
+  function updateLineNumbers() {
+    const lines = editor.value.split('\n').length;
+    let html = '';
+    for (let i = 1; i <= lines; i++) html += i + '\n';
+    lineNumbers.textContent = html;
+  }
+  editor.addEventListener('input', updateLineNumbers);
+  editor.addEventListener('scroll', () => {
+    lineNumbers.scrollTop = editor.scrollTop;
+  });
+  updateLineNumbers();
+
+  // ── Console Logger ──
+  function log(message, type = 'info') {
+    const entry = document.createElement('div');
+    entry.className = 'log-' + type;
+    const timestamp = new Date().toLocaleTimeString();
+    entry.textContent = `[${timestamp}] ${message}`;
+    output.appendChild(entry);
+    output.scrollTop = output.scrollHeight;
+    executionHistory.push({ message, type, timestamp });
+  }
+
+  // ── Trap: Ekstrak function & environment dari script ──
+  function trapEnvironment(code) {
+    const funcRegex = /function\s+(\w+)\s*\(/g;
+    const localFuncRegex = /local\s+(\w+)\s*=\s*function/g;
+    const globalAssign = /(\w+)\s*=\s*function/g;
+    const found = [];
+
+    let match;
+    while ((match = funcRegex.exec(code)) !== null) found.push(match[1]);
+    while ((match = localFuncRegex.exec(code)) !== null) found.push(match[1]);
+    while ((match = globalAssign.exec(code)) !== null) found.push(match[1]);
+
+    // Deteksi loadstring / HttpGet (trap indicator)
+    if (code.includes('loadstring') || code.includes('HttpGet')) {
+      found.push('_trap_loader');
+    }
+    if (code.includes('game:GetService')) {
+      found.push('_service_hook');
+    }
+
+    // Unique
+    const unique = [...new Set(found)];
+    capturedFunctions = unique;
+    envCount.textContent = unique.length;
+
+    // Render chips
+    funcList.innerHTML = '';
+    unique.forEach(fn => {
+      const chip = document.createElement('span');
+      chip.className = 'func-chip';
+      chip.textContent = fn;
+      funcList.appendChild(chip);
+    });
+
+    log(`🧩 Trap: ${unique.length} function/environment signatures captured.`, 'trap');
+    return unique;
+  }
+
+  // ── Simulasi Executor (dengan trap) ──
+  function executeScript(code) {
+    if (!code.trim()) {
+      log('⚠️ Script kosong, tidak ada yang dijalankan.', 'warn');
+      return;
+    }
+
+    log('▶️ Executing script...', 'info');
+    log(`📜 Script length: ${code.length} chars`, 'info');
+
+    // 1. Trap environment
+    trapEnvironment(code);
+
+    // 2. Deteksi pola berbahaya / trap
+    if (code.includes('loadstring') && code.includes('HttpGet')) {
+      log('⚠️ Detected loadstring(HttpGet) — trap script terdeteksi!', 'warn');
+      // Simulasi eksekusi trap: tampilkan environment yang dicuri
+      const urls = code.match(/https?:\/\/[^\s"')]+/g) || [];
+      urls.forEach((url, i) => {
+        log(`🔗 Trap URL ${i+1}: ${url}`, 'trap');
+      });
+    }
+
+    // 3. Eksekusi simulasi (sandbox ringan)
+    try {
+      // Fake environment untuk menangkap akses
+      const sandbox = {
+        print: (...args) => log('📢 ' + args.join(' '), 'success'),
+        warn: (...args) => log('⚠️ ' + args.join(' '), 'warn'),
+        error: (...args) => log('❌ ' + args.join(' '), 'error'),
+        game: {
+          GetService: (s) => {
+            log(`🎮 game:GetService("${s}") dipanggil`, 'info');
+            return { Name: s };
+          },
+          HttpGet: (url) => {
+            log(`🌐 game:HttpGet("${url}") — trap environment captured`, 'trap');
+            return '-- [trap] content from ' + url;
+          }
+        },
+        loadstring: (src) => {
+          log(`📦 loadstring() dipanggil — environment terpapar!`, 'trap');
+          return function() { log('⚡ loadstring result executed', 'success'); };
+        }
+      };
+
+      // Fungsi untuk menjalankan dengan sandbox
+      const fn = new Function('sandbox', `
+        with (sandbox) {
+          ${code}
+        }
+      `);
+      fn(sandbox);
+
+      log('✅ Execusi selesai (simulasi).', 'success');
+    } catch (err) {
+      log(`❌ Error: ${err.message}`, 'error');
+    }
+  }
+
+  // ── Event: Execute ──
+  btnExec.addEventListener('click', () => {
+    const code = editor.value;
+    executeScript(code);
+  });
+
+  // ── Clear Editor ──
+  btnClear.addEventListener('click', () => {
+    editor.value = '';
+    updateLineNumbers();
+    log('🗑️ Editor dibersihkan.', 'info');
+  });
+
+  // ── Clear Output ──
+  btnClearOutput.addEventListener('click', () => {
+    output.innerHTML = '';
+    executionHistory = [];
+    log('🧹 Output dibersihkan.', 'info');
+  });
+
+  // ── Save Script (localStorage) ──
+  btnSave.addEventListener('click', () => {
+    try {
+      localStorage.setItem('robux_loader_script', editor.value);
+      log('💾 Script disimpan ke local storage.', 'success');
+    } catch (e) {
+      log('❌ Gagal menyimpan: ' + e.message, 'error');
+    }
+  });
+
+  // ── Load Script (localStorage) ──
+  btnLoad.addEventListener('click', () => {
+    try {
+      const saved = localStorage.getItem('robux_loader_script');
+      if (saved) {
+        editor.value = saved;
+        updateLineNumbers();
+        log('📂 Script dimuat dari local storage.', 'success');
+      } else {
+        log('⚠️ Tidak ada script tersimpan.', 'warn');
+      }
+    } catch (e) {
+      log('❌ Gagal memuat: ' + e.message, 'error');
+    }
+  });
+
+  // ── Theme Switcher ──
+  themeSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const app = document.getElementById('app');
+    const body = document.body;
+    if (val === 'dark') {
+      body.style.background = '#1a1a1a';
+      app.style.background = '#2d2d2d';
+      app.style.borderColor = '#fee440';
+      app.style.boxShadow = '12px 12px 0 #fee440';
+      editor.style.background = '#1e1e1e';
+      editor.style.color = '#d4d4d4';
+      document.querySelector('.editor-panel').style.borderColor = '#fee440';
+    } else if (val === 'neon') {
+      body.style.background = '#0d0d2b';
+      app.style.background = '#1a1a3a';
+      app.style.borderColor = '#ff00ff';
+      app.style.boxShadow = '12px 12px 0 #00ffff';
+      editor.style.background = '#0d0d1a';
+      editor.style.color = '#00ffcc';
+      document.querySelector('.editor-panel').style.borderColor = '#ff00ff';
+    } else {
+      // light default
+      body.style.background = '#f5f0e8';
+      app.style.background = '#ffffff';
+      app.style.borderColor = '#1a1a1a';
+      app.style.boxShadow = '12px 12px 0 #1a1a1a';
+      editor.style.background = '#fcfcf8';
+      editor.style.color = '#1a1a1a';
+      document.querySelector('.editor-panel').style.borderColor = '#1a1a1a';
+    }
+    log(`🎨 Tema diubah ke: ${val}`, 'info');
+  });
+
+  // ── Shortcut: Ctrl+Enter Execute ──
+  editor.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      btnExec.click();
+    }
+  });
+
+  // ── Init Log ──
+  log('🚀 Robux Loader siap. Neo-brutalism + long shadow aktif.', 'success');
+  log('💡 Ctrl+Enter untuk execute. Trap environment berjalan real-time.', 'info');
+
+  // Auto-trap untuk script awal
+  setTimeout(() => {
+    trapEnvironment(editor.value);
+  }, 300);
+
+})();
