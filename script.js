@@ -1,7 +1,7 @@
 (function() {
   'use strict';
 
-  // ── DOM refs ──
+  // ── DOM references ──
   const editor = document.getElementById('script-editor');
   const output = document.getElementById('output-console');
   const lineNumbers = document.getElementById('line-numbers');
@@ -43,7 +43,34 @@
     executionHistory.push({ message, type, timestamp });
   }
 
-  // ── Trap: Ekstrak function & environment dari script ──
+  // ── Fetch with retry dan header ──
+  async function fetchScriptWithRetry(url, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const resp = await fetch(url, {
+          headers: {
+            'User-Agent': 'Roblox/WinInet',
+            'Accept': 'text/plain'
+          }
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        if (text.length < 10) throw new Error('Script terlalu pendek, mungkin terpotong.');
+        return text;
+      } catch (e) {
+        log(`⚠️ Fetch attempt ${i+1} gagal: ${e.message}`, 'warn');
+        if (i === retries) {
+          log(`❌ Gagal memuat dari ${url} setelah ${retries+1} percobaan.`, 'error');
+          return null;
+        }
+        // Tunggu sebentar sebelum retry
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    return null;
+  }
+
+  // ── Trap Environment ──
   function trapEnvironment(code) {
     const funcRegex = /function\s+(\w+)\s*\(/g;
     const localFuncRegex = /local\s+(\w+)\s*=\s*function/g;
@@ -55,20 +82,20 @@
     while ((match = localFuncRegex.exec(code)) !== null) found.push(match[1]);
     while ((match = globalAssign.exec(code)) !== null) found.push(match[1]);
 
-    // Deteksi loadstring / HttpGet (trap indicator)
     if (code.includes('loadstring') || code.includes('HttpGet')) {
       found.push('_trap_loader');
     }
     if (code.includes('game:GetService')) {
       found.push('_service_hook');
     }
+    if (code.includes('getgenv') || code.includes('_G')) {
+      found.push('_env_hook');
+    }
 
-    // Unique
     const unique = [...new Set(found)];
     capturedFunctions = unique;
     envCount.textContent = unique.length;
 
-    // Render chips
     funcList.innerHTML = '';
     unique.forEach(fn => {
       const chip = document.createElement('span');
@@ -81,9 +108,9 @@
     return unique;
   }
 
-  // ── Simulasi Executor (dengan trap) ──
-  function executeScript(code) {
-    if (!code.trim()) {
+  // ── Eksekusi Script dengan sandbox dan wrapper ──
+  async function executeScript(code) {
+    if (!code || !code.trim()) {
       log('⚠️ Script kosong, tidak ada yang dijalankan.', 'warn');
       return;
     }
@@ -91,53 +118,103 @@
     log('▶️ Executing script...', 'info');
     log(`📜 Script length: ${code.length} chars`, 'info');
 
-    // 1. Trap environment
+    // Trap environment
     trapEnvironment(code);
 
-    // 2. Deteksi pola berbahaya / trap
+    // Deteksi loadstring dan ekstrak URL
     if (code.includes('loadstring') && code.includes('HttpGet')) {
       log('⚠️ Detected loadstring(HttpGet) — trap script terdeteksi!', 'warn');
-      // Simulasi eksekusi trap: tampilkan environment yang dicuri
       const urls = code.match(/https?:\/\/[^\s"')]+/g) || [];
-      urls.forEach((url, i) => {
-        log(`🔗 Trap URL ${i+1}: ${url}`, 'trap');
-      });
+      for (const url of urls) {
+        log(`🔗 Trap URL: ${url}`, 'trap');
+        // Coba fetch script dari URL tersebut
+        const fetched = await fetchScriptWithRetry(url);
+        if (fetched) {
+          log(`📥 Berhasil fetch dari ${url} (${fetched.length} chars)`, 'success');
+          // Tambahkan ke sandbox sebagai variabel
+          sandbox._fetchedScripts = sandbox._fetchedScripts || {};
+          sandbox._fetchedScripts[url] = fetched;
+        } else {
+          log(`⚠️ Gagal fetch dari ${url}, lanjutkan dengan simulasi.`, 'warn');
+        }
+      }
     }
 
-    // 3. Eksekusi simulasi (sandbox ringan)
-    try {
-      // Fake environment untuk menangkap akses
-      const sandbox = {
-        print: (...args) => log('📢 ' + args.join(' '), 'success'),
-        warn: (...args) => log('⚠️ ' + args.join(' '), 'warn'),
-        error: (...args) => log('❌ ' + args.join(' '), 'error'),
-        game: {
-          GetService: (s) => {
-            log(`🎮 game:GetService("${s}") dipanggil`, 'info');
-            return { Name: s };
-          },
-          HttpGet: (url) => {
-            log(`🌐 game:HttpGet("${url}") — trap environment captured`, 'trap');
-            return '-- [trap] content from ' + url;
-          }
+    // Siapkan sandbox lengkap
+    const sandbox = {
+      print: (...args) => log('📢 ' + args.join(' '), 'success'),
+      warn: (...args) => log('⚠️ ' + args.join(' '), 'warn'),
+      error: (...args) => log('❌ ' + args.join(' '), 'error'),
+      game: {
+        GetService: (s) => {
+          log(`🎮 game:GetService("${s}") dipanggil`, 'info');
+          return { Name: s };
         },
-        loadstring: (src) => {
-          log(`📦 loadstring() dipanggil — environment terpapar!`, 'trap');
-          return function() { log('⚡ loadstring result executed', 'success'); };
+        HttpGet: (url) => {
+          log(`🌐 game:HttpGet("${url}") — trap environment captured`, 'trap');
+          return '-- [trap] content from ' + url;
+        },
+        PlaceId: 0,
+        GameId: 0,
+        Players: {
+          LocalPlayer: { UserId: 12345 }
         }
-      };
+      },
+      getgenv: () => ({}),
+      _G: { ServerURL: 'https://zeroinhub.com' },
+      syn: { request: () => ({ Status: 200, Body: '{}' }) },
+      request: () => ({ Status: 200, Body: '{}' }),
+      http_request: () => ({ Status: 200, Body: '{}' }),
+      http: { request: () => ({ Status: 200, Body: '{}' }) },
+      gethui: () => ({ Parent: null }),
+      Instance: {
+        new: (cls) => ({
+          Name: cls,
+          Parent: null,
+          Size: {},
+          Position: {},
+          BackgroundColor3: {},
+          BorderSizePixel: 0,
+          BorderColor3: {},
+          Text: '',
+          TextColor3: {},
+          Font: {},
+          TextSize: 0,
+          BackgroundTransparency: 1,
+          TextWrapped: false,
+          TextEditable: false,
+          ClearTextOnFocus: false,
+          Parent: null
+        })
+      },
+      Color3: { fromRGB: () => ({}) },
+      Enum: { Font: { GothamBold: {}, Gotham: {}, Code: {} } },
+      UDim2: { new: () => ({}) },
+      loadstring: (src) => {
+        log(`📦 loadstring() dipanggil — environment terpapar!`, 'trap');
+        return function() { log('⚡ loadstring result executed', 'success'); };
+      }
+    };
 
-      // Fungsi untuk menjalankan dengan sandbox
+    // Bungkus script agar tidak error parsing
+    const wrappedCode = `
+      (function() {
+        ${code}
+      })()
+    `;
+
+    try {
       const fn = new Function('sandbox', `
         with (sandbox) {
-          ${code}
+          ${wrappedCode}
         }
       `);
       fn(sandbox);
 
-      log('✅ Execusi selesai (simulasi).', 'success');
+      log('✅ Eksekusi selesai (simulasi).', 'success');
     } catch (err) {
       log(`❌ Error: ${err.message}`, 'error');
+      log('💡 Tips: Script mungkin terpotong atau mengandung sintaks yang tidak valid. Coba perbaiki manual di editor.', 'warn');
     }
   }
 
@@ -209,7 +286,6 @@
       editor.style.color = '#00ffcc';
       document.querySelector('.editor-panel').style.borderColor = '#ff00ff';
     } else {
-      // light default
       body.style.background = '#f5f0e8';
       app.style.background = '#ffffff';
       app.style.borderColor = '#1a1a1a';
