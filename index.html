@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robux Loader · Trap Script</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="app">
+    <!-- HEADER: UI Executor -->
+    <header id="executor-header">
+      <div class="title-bar">
+        <span class="brand">⧩ RobuxLoader</span>
+        <div class="window-controls">
+          <span class="ctrl-min">─</span>
+          <span class="ctrl-max">☐</span>
+          <span class="ctrl-close">✕</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="btn-execute" class="neo-btn primary">▶ Execute</button>
+        <button id="btn-clear" class="neo-btn">Clear</button>
+        <button id="btn-save" class="neo-btn">💾 Save</button>
+        <button id="btn-load" class="neo-btn">📂 Load</button>
+        <select id="theme-select" class="neo-select">
+          <option value="dark">Dark</option>
+          <option value="light" selected>Light</option>
+          <option value="neon">Neon</option>
+        </select>
+      </div>
+      <div class="script-tabs">
+        <span class="tab active">main.lua</span>
+        <span class="tab">trap.lua</span>
+        <span class="tab">+</span>
+      </div>
+    </header>
+
+    <!-- MAIN: Editor + Output -->
+    <main id="executor-main">
+      <div class="editor-panel">
+        <textarea id="script-editor" spellcheck="false">-- Trap Script Loader
+loadstring(game:HttpGet("https://raw.githubusercontent.com/JualNasiRendang/loader/refs/heads/main/main.lua"))()
+
+-- Contoh trap: fake admin
+print("⚠️ Trap aktif! Environment tercuri.")</textarea>
+        <div class="line-numbers" id="line-numbers"></div>
+      </div>
+      <div class="output-panel">
+        <div class="output-header">
+          <span>📟 Output Real-time</span>
+          <button id="btn-clear-output" class="neo-btn small">Clear</button>
+        </div>
+        <div id="output-console"></div>
+      </div>
+    </main>
+
+    <!-- FOOTER: Environment / Function Trapper -->
+    <footer id="trap-footer">
+      <div class="trap-info">
+        <span>🧩 Environment Captured: <span id="env-count">0</span> functions</span>
+        <span>🔒 Bypass: Byfron emulation active</span>
+      </div>
+      <div id="function-list">
+        <!-- Diisi real-time oleh JS -->
+      </div>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
